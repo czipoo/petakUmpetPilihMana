@@ -1,0 +1,47 @@
+name: petakUmpetPilihMana
+version: '1.0-SNAPSHOT'
+main: com.czipo.petakUmpetPilihMana.PetakUmpetPilihMana
+api-version: '1.21.11'
+load: POSTWORLD
+
+commands:
+  regis:
+    description: "Daftarkan player untuk game"
+    usage: "/regis <nama>"
+    permission: op
+  unregis:
+    description: "Hapus player dari pendaftaran"
+    usage: "/unregis <nama>"
+    permission: op
+  listplayer:
+    description: "Lihat daftar player yang terdaftar"
+    usage: "/listplayer"
+    permission: op
+  gacha:
+    description: "Gacha / pilih hunter secara random"
+    usage: "/gacha"
+    permission: op
+  start:
+    description: "Mulai game setelah hunter ditentukan"
+    usage: "/start"
+    permission: op
+  resetgame:
+    description: "Reset semua data game (score, hunter, semuanya)"
+    usage: "/resetgame"
+    permission: op
+  endgame:
+    description: "Akhiri game dan tampilkan leaderboard"
+    usage: "/endgame"
+    permission: op
+  listscore:
+    description: "Lihat leaderboard score saat ini"
+    usage: "/listscore"
+    permission: op
+  nextround:
+    description: "Persiapkan ronde baru (score tetap, hunter reset)"
+    usage: "/nextround"
+    permission: op
+  question:
+    description: "Picu pertanyaan Would You Rather spesifik untuk testing"
+    usage: "/question <nomor>"
+    permission: op

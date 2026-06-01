@@ -1,0 +1,46 @@
+package com.czipo.petakUmpetPilihMana;
+
+import org.bukkit.event.Listener;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
+    private GameManager gameManager;
+    private PilihManaManager pilihManaManager;
+    private GameListener gameListener;
+
+    @Override
+    public void onEnable() {
+        this.gameManager = new GameManager();
+        this.pilihManaManager = new PilihManaManager(this);
+        this.gameListener = new GameListener(this);
+
+        // Register Commands
+        getCommand("regis").setExecutor(new AdminCommands(this));
+        getCommand("unregis").setExecutor(new AdminCommands(this));
+        getCommand("listplayer").setExecutor(new AdminCommands(this));
+        getCommand("gacha").setExecutor(new GameCommands(this));
+        getCommand("start").setExecutor(new GameCommands(this));
+        getCommand("nextround").setExecutor(new GameCommands(this));
+        if (getCommand("resetgame") != null) getCommand("resetgame").setExecutor(new AdminCommands(this));
+        if (getCommand("endgame") != null) getCommand("endgame").setExecutor(new AdminCommands(this));
+        if (getCommand("listscore") != null) getCommand("listscore").setExecutor(new AdminCommands(this));
+        if (getCommand("question") != null) getCommand("question").setExecutor(new GameCommands(this));
+
+        getServer().getPluginManager().registerEvents(gameListener, this);
+        getServer().getPluginManager().registerEvents(this, this);
+
+        getLogger().info("Petak Umpet Pilih Mana Enabled!");
+    }
+
+    public GameManager getGameManager() { return gameManager; }
+    public PilihManaManager getPilihManaManager() { return pilihManaManager; }
+    public GameListener getGameListener() { return gameListener; }
+
+    @Override
+    public void onDisable() {
+        if (pilihManaManager != null) {
+            pilihManaManager.resetAllActiveEffects();
+        }
+        getLogger().info("Petak Umpet Pilih Mana Disabled!");
+    }
+}
