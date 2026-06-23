@@ -7,12 +7,15 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class TimerBossBarManager {
     private final Map<UUID, BossBar> playerBars = new HashMap<>();
     private BossBar sharedBar;
+    private final Set<UUID> sharedViewers = new HashSet<>();
     private int sharedMaxSeconds = 1;
 
     public void setPlayerTimer(Player player, String label, int remainingSeconds, int maxSeconds) {
@@ -21,13 +24,15 @@ public class TimerBossBarManager {
         }
 
         UUID uuid = player.getUniqueId();
-        BossBar bar = playerBars.get(uuid);
+        float ratio = (float) remainingSeconds / Math.max(1, maxSeconds);
         String title = label + " " + formatTime(remainingSeconds);
         float progress = progress(remainingSeconds, maxSeconds);
-        BarColor color = colorForProgress(remainingSeconds, maxSeconds);
+        BarColor color = smoothColor(ratio);
 
+        BossBar bar = playerBars.get(uuid);
         if (bar == null) {
             bar = Bukkit.createBossBar(title, color, BarStyle.SOLID);
+            bar.setProgress(progress);
             bar.addPlayer(player);
             playerBars.put(uuid, bar);
         } else {
@@ -38,7 +43,6 @@ public class TimerBossBarManager {
                 bar.addPlayer(player);
             }
         }
-        bar.setProgress(progress);
     }
 
     public void startSharedTimer(Iterable<Player> players, String label, int maxSeconds) {
@@ -46,12 +50,13 @@ public class TimerBossBarManager {
         sharedMaxSeconds = Math.max(1, maxSeconds);
         sharedBar = Bukkit.createBossBar(
                 label + " " + formatTime(maxSeconds),
-                BarColor.GREEN,
+                smoothColor(1f),
                 BarStyle.SOLID
         );
         sharedBar.setProgress(1.0);
         for (Player player : players) {
             if (player != null && player.isOnline()) {
+                sharedViewers.add(player.getUniqueId());
                 sharedBar.addPlayer(player);
             }
         }
@@ -61,15 +66,18 @@ public class TimerBossBarManager {
         if (sharedBar == null) {
             return;
         }
+
+        float ratio = (float) remainingSeconds / Math.max(1, sharedMaxSeconds);
         sharedBar.setTitle(label + " " + formatTime(remainingSeconds));
         sharedBar.setProgress(progress(remainingSeconds, sharedMaxSeconds));
-        sharedBar.setColor(colorForProgress(remainingSeconds, sharedMaxSeconds));
+        sharedBar.setColor(smoothColor(ratio));
     }
 
     public void removePlayer(Player player) {
         if (player == null) {
             return;
         }
+        sharedViewers.remove(player.getUniqueId());
         BossBar bar = playerBars.remove(player.getUniqueId());
         if (bar != null) {
             bar.removePlayer(player);
@@ -77,6 +85,21 @@ public class TimerBossBarManager {
                 bar.removeAll();
             }
         }
+        if (sharedBar != null) {
+            sharedBar.removePlayer(player);
+        }
+    }
+
+    public void pauseSharedTimer(String label, int remainingSeconds) {
+        updateSharedTimer(label, remainingSeconds);
+    }
+
+    public int getSharedMaxSeconds() {
+        return sharedMaxSeconds;
+    }
+
+    public boolean hasSharedTimer() {
+        return sharedBar != null;
     }
 
     public void removeShared() {
@@ -84,6 +107,7 @@ public class TimerBossBarManager {
             sharedBar.removeAll();
             sharedBar = null;
         }
+        sharedViewers.clear();
     }
 
     public void removeAll() {
@@ -104,13 +128,48 @@ public class TimerBossBarManager {
         return Math.max(0f, Math.min(1f, (float) remaining / Math.max(1, max)));
     }
 
-    private static BarColor colorForProgress(int remaining, int max) {
-        float ratio = (float) remaining / Math.max(1, max);
-        if (ratio > 0.5f) {
+    static BarColor smoothColor(float ratio) {
+        ratio = Math.max(0f, Math.min(1f, ratio));
+
+        if (ratio >= 0.999f) {
             return BarColor.GREEN;
         }
-        if (ratio > 0f) {
+        if (ratio <= 0.001f) {
+            return BarColor.RED;
+        }
+        if (Math.abs(ratio - 0.5f) < 0.025f) {
             return BarColor.YELLOW;
+        }
+
+        if (ratio > 0.5f) {
+            float blend = (ratio - 0.5f) / 0.5f;
+            if (blend >= 0.80f) {
+                return BarColor.GREEN;
+            }
+            if (blend >= 0.60f) {
+                return BarColor.GREEN;
+            }
+            if (blend >= 0.40f) {
+                return BarColor.YELLOW;
+            }
+            if (blend >= 0.20f) {
+                return BarColor.YELLOW;
+            }
+            return BarColor.YELLOW;
+        }
+
+        float blend = ratio / 0.5f;
+        if (blend >= 0.80f) {
+            return BarColor.YELLOW;
+        }
+        if (blend >= 0.60f) {
+            return BarColor.YELLOW;
+        }
+        if (blend >= 0.40f) {
+            return BarColor.YELLOW;
+        }
+        if (blend >= 0.20f) {
+            return BarColor.RED;
         }
         return BarColor.RED;
     }

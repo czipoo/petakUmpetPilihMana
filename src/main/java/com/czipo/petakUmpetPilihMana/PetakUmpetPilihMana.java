@@ -1,9 +1,8 @@
 package com.czipo.petakUmpetPilihMana;
 
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
+public final class PetakUmpetPilihMana extends JavaPlugin {
     private GameManager gameManager;
     private PilihManaManager pilihManaManager;
     private GameListener gameListener;
@@ -28,7 +27,6 @@ public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
         if (getCommand("question") != null) getCommand("question").setExecutor(new GameCommands(this));
 
         getServer().getPluginManager().registerEvents(gameListener, this);
-        getServer().getPluginManager().registerEvents(this, this);
 
         getLogger().info("Petak Umpet Pilih Mana Enabled!");
     }
@@ -47,7 +45,7 @@ public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
             gameManager.cancelAllTasks();
         }
         if (pilihManaManager != null) {
-            pilihManaManager.resetAllActiveEffects();
+            pilihManaManager.resetParticipantEffects();
         }
         getLogger().info("Petak Umpet Pilih Mana Disabled!");
     }

@@ -28,12 +28,12 @@ public class GameCommands implements CommandExecutor {
         GameManager gm = plugin.getGameManager();
 
         if (label.equalsIgnoreCase("start")) {
-            if (gm.isGameRunning()) {
-                sender.sendMessage("§cGame sudah berjalan!");
-                return true;
-            }
-            if (gm.isAwaitingNextRound()) {
-                sender.sendMessage("§cRonde sebelumnya belum dilanjutkan! Gunakan /nextround atau /endgame.");
+            if (!gm.isStarting()) {
+                if (gm.isWaiting()) {
+                    sender.sendMessage("§cGunakan /nextround untuk melanjutkan tournament!");
+                } else if (gm.isPlaying()) {
+                    sender.sendMessage("§cGame sedang berjalan!");
+                }
                 return true;
             }
             if (gm.getParticipants().size() < 2) {
@@ -46,7 +46,7 @@ public class GameCommands implements CommandExecutor {
                     .toList();
 
             if (available.isEmpty()) {
-                sender.sendMessage("§cSemua peserta sudah pernah jadi Hunter! Gunakan /endgame lalu /start, atau /resetgame.");
+                sender.sendMessage("§cSemua peserta sudah pernah jadi Hunter! Gunakan /endgame lalu /start.");
                 return true;
             }
 
@@ -56,12 +56,12 @@ public class GameCommands implements CommandExecutor {
         }
 
         else if (label.equalsIgnoreCase("nextround")) {
-            if (gm.isGameRunning()) {
-                sender.sendMessage("§cGame masih berjalan!");
-                return true;
-            }
-            if (!gm.isAwaitingNextRound()) {
-                sender.sendMessage("§c/nextround hanya bisa setelah ronde selesai!");
+            if (!gm.isWaiting()) {
+                if (gm.isPlaying()) {
+                    sender.sendMessage("§cGame masih berjalan!");
+                } else {
+                    sender.sendMessage("§c/nextround hanya bisa setelah ronde selesai!");
+                }
                 return true;
             }
             if (gm.getParticipants().size() < 2) {
@@ -107,8 +107,7 @@ public class GameCommands implements CommandExecutor {
     }
 
     private void prepareParticipantsForRound() {
-        plugin.getGameListener().clearParticipantInventories();
-        plugin.getPilihManaManager().resetParticipantEffects();
+        plugin.getGameListener().cleanupParticipants();
         plugin.getTimerBossBarManager().removeAll();
     }
 
@@ -156,7 +155,7 @@ public class GameCommands implements CommandExecutor {
         gm.setHidePhaseActive(true);
         gm.resetDeadCount();
         plugin.getGameListener().resetForNewRound();
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "gamerule locator_bar false");
+        SilentCommands.run("gamerule locator_bar false");
 
         Player hunter = gm.getHunter();
         final int hideMax = 60;
@@ -210,8 +209,7 @@ public class GameCommands implements CommandExecutor {
                     }
                     Bukkit.broadcastMessage("§c§lHUNTER DILEPASKAN!");
 
-                    plugin.getTimerBossBarManager().startSharedTimer(
-                            gm.getOnlineParticipants(), "Waktu Bermain", 300);
+                    bossBars.startSharedTimer(gm.getOnlineParticipants(), "Waktu Bermain", 300);
 
                     GameLoopTask task = new GameLoopTask(plugin);
                     gm.setGameLoopTask(task.runTaskTimer(plugin, 0L, 20L));

@@ -20,23 +20,19 @@ public class GameLoopTask extends BukkitRunnable {
     public void startWyrPhase() {
         this.isWyrActive = true;
         this.wyrCountdown = WYR_MAX_SECONDS;
+        TimerBossBarManager bossBars = plugin.getTimerBossBarManager();
+        if (bossBars.hasSharedTimer()) {
+            bossBars.pauseSharedTimer("Waktu Bermain", totalSeconds);
+        }
         plugin.getPilihManaManager().triggerPilihMana(this);
-        plugin.getTimerBossBarManager().startSharedTimer(
-                plugin.getGameManager().getOnlineParticipants(),
-                "Waktu Menjawab",
-                WYR_MAX_SECONDS
-        );
     }
 
     private void endWyrPhase() {
         plugin.getPilihManaManager().endWyrPhase();
-        plugin.getTimerBossBarManager().removeShared();
-        plugin.getTimerBossBarManager().startSharedTimer(
-                plugin.getGameManager().getOnlineParticipants(),
-                "Waktu Bermain",
-                totalSeconds
-        );
-        plugin.getTimerBossBarManager().updateSharedTimer("Waktu Bermain", totalSeconds);
+        TimerBossBarManager bossBars = plugin.getTimerBossBarManager();
+        if (bossBars.hasSharedTimer()) {
+            bossBars.updateSharedTimer("Waktu Bermain", totalSeconds);
+        }
         this.isWyrActive = false;
     }
 
@@ -69,8 +65,7 @@ public class GameLoopTask extends BukkitRunnable {
                 return;
             }
 
-            bossBars.updateSharedTimer("Waktu Menjawab", wyrCountdown);
-            plugin.getPilihManaManager().refreshOpenChoiceDialogs(wyrCountdown);
+            plugin.getPilihManaManager().refreshWyrDialogs(wyrCountdown);
 
             if (wyrCountdown <= 5) {
                 for (Player p : gm.getOnlineParticipants()) {
@@ -91,8 +86,8 @@ public class GameLoopTask extends BukkitRunnable {
             bossBars.updateSharedTimer("Waktu Bermain", totalSeconds);
 
             if (totalSeconds == 300 || totalSeconds == 240 || totalSeconds == 180 || totalSeconds == 120 || totalSeconds == 60) {
-                startWyrPhase();
                 totalSeconds--;
+                startWyrPhase();
             } else {
                 totalSeconds--;
             }

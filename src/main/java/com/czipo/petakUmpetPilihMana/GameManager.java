@@ -19,11 +19,37 @@ public class GameManager {
     private BukkitTask gachaTask;
     private BukkitTask gameLoopTask;
 
-    public void regis(Player p) {
-        if (!isParticipant(p)) {
-            participants.add(p);
-            scores.putIfAbsent(p.getUniqueId(), 0);
+    public boolean isStarting() {
+        return !gameRunning && !awaitingNextRound;
+    }
+
+    public boolean isWaiting() {
+        return !gameRunning && awaitingNextRound;
+    }
+
+    public boolean isPlaying() {
+        return gameRunning;
+    }
+
+    public void enterWaiting() {
+        gameRunning = false;
+        hidePhaseActive = false;
+        awaitingNextRound = true;
+    }
+
+    public void enterStarting() {
+        gameRunning = false;
+        hidePhaseActive = false;
+        awaitingNextRound = false;
+    }
+
+    public boolean regis(Player p) {
+        if (isParticipant(p)) {
+            return false;
         }
+        participants.add(p);
+        scores.putIfAbsent(p.getUniqueId(), 0);
+        return true;
     }
 
     public void unregis(Player p) {
@@ -104,9 +130,7 @@ public class GameManager {
         scores.clear();
         deadCount = 0;
         currentHunter = null;
-        gameRunning = false;
-        awaitingNextRound = false;
-        hidePhaseActive = false;
+        enterStarting();
     }
 
     public void resetCurrentRoundHunter() {
@@ -115,9 +139,7 @@ public class GameManager {
             currentHunter = null;
         }
         deadCount = 0;
-        gameRunning = false;
-        awaitingNextRound = false;
-        hidePhaseActive = false;
+        enterWaiting();
     }
 
     public void endTournament() {
@@ -125,9 +147,7 @@ public class GameManager {
         pastHunters.clear();
         currentHunter = null;
         deadCount = 0;
-        gameRunning = false;
-        awaitingNextRound = false;
-        hidePhaseActive = false;
+        enterStarting();
     }
 
     public void nextRound() {
