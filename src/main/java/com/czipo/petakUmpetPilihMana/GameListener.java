@@ -3,12 +3,12 @@ package com.czipo.petakUmpetPilihMana;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
@@ -30,13 +30,26 @@ public class GameListener implements Listener {
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         GameManager gm = plugin.getGameManager();
-        if (!gm.isGameRunning()) return;
+        if (!gm.isGameRunning()) {
+            return;
+        }
 
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
+        Player hunter = gm.getHunter();
 
-        // Hider mati
-        if (gm.getParticipants().contains(victim) && !victim.equals(gm.getHunter())) {
+        if (victim.equals(hunter)) {
+            if (killer != null && gm.isParticipant(killer) && !killer.equals(hunter)
+                    && !ghostPlayers.contains(killer.getUniqueId())) {
+                gm.addScore(killer.getUniqueId(), 5);
+                killer.sendMessage("§c§l[BONUS] §a+5 Poin! Kamu membunuh HUNTER!");
+                Bukkit.broadcastMessage("§c§l" + killer.getName() + " §cBERHASIL MEMBUNUH HUNTER! §e+5 POIN!");
+            }
+            endRoundWithWinner(true);
+            return;
+        }
+
+        if (gm.isParticipant(victim) && !victim.equals(hunter)) {
             if (!eliminatedPlayers.contains(victim.getUniqueId())) {
                 eliminatedPlayers.add(victim.getUniqueId());
                 int penalty = gm.getNextDeathPenalty();
@@ -48,9 +61,8 @@ public class GameListener implements Listener {
             }
         }
 
-        // Scoring untuk killer
-        if (killer != null && gm.getParticipants().contains(killer)) {
-            if (killer.equals(gm.getHunter()) || ghostPlayers.contains(killer.getUniqueId())) {
+        if (killer != null && gm.isParticipant(killer)) {
+            if (killer.equals(hunter) || ghostPlayers.contains(killer.getUniqueId())) {
                 gm.addScore(killer.getUniqueId(), 1);
                 if (ghostPlayers.contains(killer.getUniqueId())) {
                     killer.sendMessage("§7[GHOST] §a+1 Poin Kill!");
@@ -66,67 +78,54 @@ public class GameListener implements Listener {
     @EventHandler
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         GameManager gm = plugin.getGameManager();
-        if (!gm.isGameRunning()) return;
+        if (!gm.isGameRunning()) {
+            return;
+        }
 
         if (!(event.getEntity() instanceof Player victim) || !(event.getDamager() instanceof Player attacker)) {
             return;
         }
 
-        // RULE 1: Ghost tidak bisa saling membunuh
-        if (ghostPlayers.contains(attacker.getUniqueId()) && ghostPlayers.contains(victim.getUniqueId())) {
+        if (gm.isHidePhaseActive() && gm.isParticipant(attacker) && gm.isParticipant(victim)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        Player hunter = gm.getHunter();
+        boolean attackerIsGhost = ghostPlayers.contains(attacker.getUniqueId());
+        boolean victimIsGhost = ghostPlayers.contains(victim.getUniqueId());
+        boolean attackerIsHunter = hunter != null && attacker.equals(hunter);
+        boolean victimIsHunter = hunter != null && victim.equals(hunter);
+        boolean attackerIsAliveHider = gm.isParticipant(attacker) && !attackerIsGhost && !attackerIsHunter;
+        boolean victimIsAliveHider = gm.isParticipant(victim) && !victimIsGhost && !victimIsHunter;
+
+        if (attackerIsGhost && victimIsGhost) {
             event.setCancelled(true);
             attacker.sendMessage("§cGhost tidak bisa saling membunuh!");
             return;
         }
 
-        // RULE 2: Ghost tidak bisa bunuh hunter
-        if (ghostPlayers.contains(attacker.getUniqueId()) && victim.equals(gm.getHunter())) {
+        if (attackerIsGhost && victimIsHunter) {
             event.setCancelled(true);
             attacker.sendMessage("§cGhost tidak bisa membunuh Hunter!");
             return;
         }
 
-        // RULE 3: Hider alive tidak bisa bunuh ghost
-        if (!ghostPlayers.contains(attacker.getUniqueId()) && !attacker.equals(gm.getHunter())
-                && ghostPlayers.contains(victim.getUniqueId())) {
+        if (attackerIsAliveHider && victimIsGhost) {
             event.setCancelled(true);
             attacker.sendMessage("§cHider tidak bisa membunuh Ghost!");
             return;
         }
 
-        // RULE 4: Hider alive tidak bisa bunuh hunter
-        if (!ghostPlayers.contains(attacker.getUniqueId()) && !attacker.equals(gm.getHunter())
-                && victim.equals(gm.getHunter())) {
+        if (attackerIsAliveHider && victimIsAliveHider) {
             event.setCancelled(true);
-            attacker.sendMessage("§cHider tidak bisa menyakiti Hunter!");
+            attacker.sendMessage("§cHider tidak bisa saling menyerang!");
             return;
         }
 
-        // RULE 5: Hunter tidak bisa bunuh ghost
-        if (attacker.equals(gm.getHunter()) && ghostPlayers.contains(victim.getUniqueId())) {
+        if (attackerIsHunter && victimIsGhost) {
             event.setCancelled(true);
             attacker.sendMessage("§cGhost sudah aman dari Hunter!");
-            return;
-        }
-    }
-
-    @EventHandler
-    public void onPlayerChat(AsyncPlayerChatEvent event) {
-        Player p = event.getPlayer();
-        PilihManaManager pmm = plugin.getPilihManaManager();
-        String message = event.getMessage().trim();
-        if (message.equals("1") || message.equals("2")) {
-            int choice = Integer.parseInt(message);
-            // Check global question
-            if (pmm.isChoiceActive() && plugin.getGameManager().getParticipants().contains(p)) {
-                event.setCancelled(true);
-                Bukkit.getScheduler().runTask(plugin, () -> pmm.registerChoice(p, choice));
-            }
-            // Check test question
-            else if (pmm.getActiveTestQuestions().containsKey(p.getUniqueId())) {
-                event.setCancelled(true);
-                Bukkit.getScheduler().runTask(plugin, () -> pmm.registerTestChoice(p, choice));
-            }
         }
     }
 
@@ -135,18 +134,25 @@ public class GameListener implements Listener {
         Player p = event.getPlayer();
         Location from = event.getFrom();
         Location to = event.getTo();
-        if (to == null) return;
+        if (to == null) {
+            return;
+        }
 
         PilihManaManager pmm = plugin.getPilihManaManager();
 
-        // 1. Sprint cancellation (#9 A - "tidak bisa sprint")
+        if (pmm.isPlayerFrozen(p)) {
+            if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
+                event.setTo(from.setDirection(to.getDirection()));
+            }
+            return;
+        }
+
         if (pmm.getActiveNoSprints().contains(p.getUniqueId())) {
             if (p.isSprinting()) {
                 p.setSprinting(false);
             }
         }
 
-        // 2. AD / WS control swap
         boolean swapAD = pmm.getActiveADSwaps().contains(p.getUniqueId());
         boolean swapWS = pmm.getActiveWSSwaps().contains(p.getUniqueId());
 
@@ -161,20 +167,22 @@ public class GameListener implements Listener {
                 double rx = -fz;
                 double rz = fx;
 
-                // Project movement vector onto Forward and Right
                 double forwardSpeed = dx * fx + dz * fz;
                 double rightSpeed = dx * rx + dz * rz;
 
-                if (swapAD) rightSpeed = -rightSpeed;
-                if (swapWS) forwardSpeed = -forwardSpeed;
+                if (swapAD) {
+                    rightSpeed = -rightSpeed;
+                }
+                if (swapWS) {
+                    forwardSpeed = -forwardSpeed;
+                }
 
-                // Reconstruct movement vector in world space
                 double newDx = forwardSpeed * fx + rightSpeed * rx;
                 double newDz = forwardSpeed * fz + rightSpeed * rz;
 
                 Location newTo = from.clone();
                 newTo.setX(from.getX() + newDx);
-                newTo.setY(to.getY()); // preserve vertical
+                newTo.setY(to.getY());
                 newTo.setZ(from.getZ() + newDz);
                 newTo.setYaw(to.getYaw());
                 newTo.setPitch(to.getPitch());
@@ -183,7 +191,6 @@ public class GameListener implements Listener {
             }
         }
 
-        // 3. Ticking visual particles (Flame, snowflakes, sound steps hearing)
         if (from.getBlockX() != to.getBlockX() || from.getBlockZ() != to.getBlockZ()) {
             pmm.handleStepEvents(p, to);
         }
@@ -195,12 +202,40 @@ public class GameListener implements Listener {
         int currentDead = eliminatedPlayers.size();
 
         if (currentDead >= totalHiders) {
-            gm.setGameRunning(false);
-            eliminatedPlayers.clear();
-            ghostPlayers.clear();
-            plugin.getPilihManaManager().resetAllActiveEffects();
-            Bukkit.broadcastMessage("§6§lRONDE SELESAI! §fSemua hider tertangkap.");
+            endRoundWithWinner(false);
         }
+    }
+
+    public void endRoundWithWinner(boolean hiderWins) {
+        GameManager gm = plugin.getGameManager();
+        gm.cancelAllTasks();
+        gm.setGameRunning(false);
+        gm.setHidePhaseActive(false);
+        gm.setAwaitingNextRound(true);
+        eliminatedPlayers.clear();
+        ghostPlayers.clear();
+        plugin.getPilihManaManager().endWyrPhase();
+        plugin.getPilihManaManager().resetParticipantEffects();
+        plugin.getTimerBossBarManager().removeAll();
+        clearParticipantInventories();
+
+        if (hiderWins) {
+            Bukkit.broadcastMessage("§a§l✦ HIDER MENANG! ✦");
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.sendTitle("§a§lHIDER MENANG!", "§fHider berhasil!", 10, 60, 20);
+                p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            }
+        } else {
+            Bukkit.broadcastMessage("§c§l✦ HUNTER MENANG! ✦");
+            Player hunter = gm.getHunter();
+            String subtitle = hunter != null ? "§e" + hunter.getName() + " §fberhasil menangkap semua hider!" : "§fSemua hider tertangkap!";
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.sendTitle("§c§lHUNTER MENANG!", subtitle, 10, 60, 20);
+                p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_DEATH, 0.5f, 1.2f);
+            }
+        }
+
+        ModMessages.sendToOps("§eGunakan §a/nextround §euntuk lanjut, atau §c/endgame §euntuk tutup tournament.");
     }
 
     public void giveHunterGear(Player p) {
@@ -210,7 +245,7 @@ public class GameListener implements Listener {
         }
         p.getInventory().clear();
         p.getInventory().addItem(new ItemStack(Material.NETHERITE_SWORD));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true); // Max strength
+        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true);
         p.sendMessage("§e⚔ Kamu diberikan Netherite Sword & Kekuatan Maksimal!");
         Bukkit.broadcastMessage("§c§l" + p.getName() + " §csiap berburu!");
     }
@@ -225,8 +260,18 @@ public class GameListener implements Listener {
         }
         p.getInventory().clear();
         p.getInventory().addItem(new ItemStack(Material.NETHERITE_SWORD));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true); // Max strength
+        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true);
         p.sendMessage("§7[GHOST] §f⚔ Kamu menjadi ghost! Dapatkan §c+1 Poin §funtuk setiap kill!");
+    }
+
+    public void clearParticipantInventories() {
+        GameManager gm = plugin.getGameManager();
+        for (Player p : gm.getParticipants()) {
+            if (p.isOnline()) {
+                p.getInventory().clear();
+                p.removePotionEffect(PotionEffectType.STRENGTH);
+            }
+        }
     }
 
     public Set<UUID> getGhostPlayers() {

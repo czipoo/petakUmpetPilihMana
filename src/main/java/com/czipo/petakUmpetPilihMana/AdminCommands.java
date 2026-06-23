@@ -19,7 +19,9 @@ public class AdminCommands implements CommandExecutor {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!sender.isOp()) return true;
+        if (!sender.isOp()) {
+            return true;
+        }
 
         GameManager gm = plugin.getGameManager();
 
@@ -41,6 +43,21 @@ public class AdminCommands implements CommandExecutor {
             }
         }
 
+        else if (label.equalsIgnoreCase("regisall")) {
+            if (gm.isGameRunning()) {
+                sender.sendMessage("§cTidak bisa registrasi saat game berlangsung!");
+                return true;
+            }
+            int count = 0;
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!gm.isParticipant(p)) {
+                    gm.regis(p);
+                    count++;
+                }
+            }
+            sender.sendMessage("§a" + count + " player berhasil terdaftar! Total: §f" + gm.getParticipants().size());
+        }
+
         else if (label.equalsIgnoreCase("unregis")) {
             if (gm.isGameRunning()) {
                 sender.sendMessage("§cTidak bisa unregis saat game berlangsung!");
@@ -54,6 +71,8 @@ public class AdminCommands implements CommandExecutor {
             if (target != null) {
                 gm.unregis(target);
                 sender.sendMessage("§e" + target.getName() + " telah dihapus dari daftar.");
+            } else {
+                sender.sendMessage("§cPlayer tidak online.");
             }
         }
 
@@ -65,9 +84,25 @@ public class AdminCommands implements CommandExecutor {
         }
 
         else if (label.equalsIgnoreCase("endgame")) {
-            gm.setGameRunning(false);
+            if (gm.isGameRunning()) {
+                sender.sendMessage("§cGame masih berjalan! Tunggu ronde selesai.");
+                return true;
+            }
+            if (!gm.isAwaitingNextRound()) {
+                sender.sendMessage("§c/endgame hanya bisa setelah ronde selesai dan sebelum /nextround!");
+                return true;
+            }
+
+            gm.endTournament();
+            plugin.getGameListener().resetForNewRound();
+            plugin.getGameListener().clearParticipantInventories();
+            plugin.getPilihManaManager().endWyrPhase();
+            plugin.getPilihManaManager().resetParticipantEffects();
+            plugin.getTimerBossBarManager().removeAll();
+
             Bukkit.broadcastMessage("§c§lGAME TELAH BERAKHIR!");
             showLeaderboard();
+            ModMessages.sendToOps("§eGunakan §a/start §euntuk memulai tournament baru.");
         }
 
         else if (label.equalsIgnoreCase("listscore")) {
@@ -75,9 +110,17 @@ public class AdminCommands implements CommandExecutor {
         }
 
         else if (label.equalsIgnoreCase("resetgame")) {
-            gm.resetGameData();
-            sender.sendMessage("§a§lRESET! §fSemua skor dan sejarah Hunter telah dihapus.");
-            Bukkit.broadcastMessage("§c§lGAME DIRESET! Siap untuk ronde baru.");
+            gm.cancelAllTasks();
+            gm.resetCurrentRoundHunter();
+            plugin.getGameListener().resetForNewRound();
+            plugin.getGameListener().clearParticipantInventories();
+            plugin.getPilihManaManager().endWyrPhase();
+            plugin.getPilihManaManager().resetParticipantEffects();
+            plugin.getTimerBossBarManager().removeAll();
+
+            sender.sendMessage("§a§lRESET RONDE! §fHunter ronde ini dihapus dari riwayat. Skor tetap.");
+            Bukkit.broadcastMessage("§c§lRONDE DIRESET!");
+            ModMessages.sendToOps("§eGunakan §a/start §eatau §a/nextround §euntuk melanjutkan.");
         }
 
         return true;

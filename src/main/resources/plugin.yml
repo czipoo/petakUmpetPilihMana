@@ -9,6 +9,10 @@ commands:
     description: "Daftarkan player untuk game"
     usage: "/regis <nama>"
     permission: op
+  regisall:
+    description: "Daftarkan semua player online"
+    usage: "/regisall"
+    permission: op
   unregis:
     description: "Hapus player dari pendaftaran"
     usage: "/unregis <nama>"
@@ -17,20 +21,16 @@ commands:
     description: "Lihat daftar player yang terdaftar"
     usage: "/listplayer"
     permission: op
-  gacha:
-    description: "Gacha / pilih hunter secara random"
-    usage: "/gacha"
-    permission: op
   start:
-    description: "Mulai game setelah hunter ditentukan"
+    description: "Gacha hunter dan mulai game"
     usage: "/start"
     permission: op
   resetgame:
-    description: "Reset semua data game (score, hunter, semuanya)"
+    description: "Reset ronde saat ini (hunter ronde ini dihapus dari riwayat)"
     usage: "/resetgame"
     permission: op
   endgame:
-    description: "Akhiri game dan tampilkan leaderboard"
+    description: "Akhiri tournament setelah ronde selesai"
     usage: "/endgame"
     permission: op
   listscore:
@@ -38,7 +38,7 @@ commands:
     usage: "/listscore"
     permission: op
   nextround:
-    description: "Persiapkan ronde baru (score tetap, hunter reset)"
+    description: "Gacha hunter dan mulai ronde baru"
     usage: "/nextround"
     permission: op
   question:

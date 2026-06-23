@@ -7,18 +7,19 @@ public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
     private GameManager gameManager;
     private PilihManaManager pilihManaManager;
     private GameListener gameListener;
+    private TimerBossBarManager timerBossBarManager;
 
     @Override
     public void onEnable() {
         this.gameManager = new GameManager();
+        this.timerBossBarManager = new TimerBossBarManager();
         this.pilihManaManager = new PilihManaManager(this);
         this.gameListener = new GameListener(this);
 
-        // Register Commands
         getCommand("regis").setExecutor(new AdminCommands(this));
+        getCommand("regisall").setExecutor(new AdminCommands(this));
         getCommand("unregis").setExecutor(new AdminCommands(this));
         getCommand("listplayer").setExecutor(new AdminCommands(this));
-        getCommand("gacha").setExecutor(new GameCommands(this));
         getCommand("start").setExecutor(new GameCommands(this));
         getCommand("nextround").setExecutor(new GameCommands(this));
         if (getCommand("resetgame") != null) getCommand("resetgame").setExecutor(new AdminCommands(this));
@@ -35,9 +36,16 @@ public final class PetakUmpetPilihMana extends JavaPlugin implements Listener {
     public GameManager getGameManager() { return gameManager; }
     public PilihManaManager getPilihManaManager() { return pilihManaManager; }
     public GameListener getGameListener() { return gameListener; }
+    public TimerBossBarManager getTimerBossBarManager() { return timerBossBarManager; }
 
     @Override
     public void onDisable() {
+        if (timerBossBarManager != null) {
+            timerBossBarManager.removeAll();
+        }
+        if (gameManager != null) {
+            gameManager.cancelAllTasks();
+        }
         if (pilihManaManager != null) {
             pilihManaManager.resetAllActiveEffects();
         }
