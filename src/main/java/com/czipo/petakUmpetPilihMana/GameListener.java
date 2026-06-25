@@ -1,7 +1,6 @@
 package com.czipo.petakUmpetPilihMana;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -11,6 +10,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -55,10 +55,16 @@ public class GameListener implements Listener {
             return;
         }
 
+        event.setKeepInventory(true);
+        event.setKeepLevel(true);
+        event.getDrops().clear();
+        event.setDroppedExp(0);
+
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         Player hunter = gm.getHunter();
 
+        // Hunter mati → respawn di spawn, bukan hider menang
         if (victim.equals(hunter)) {
             if (killer != null && gm.isParticipant(killer) && !killer.equals(hunter)
                     && !ghostPlayers.contains(killer.getUniqueId())) {
@@ -66,10 +72,19 @@ public class GameListener implements Listener {
                 killer.sendMessage("§c§l[BONUS] §a+5 Poin! Kamu membunuh HUNTER!");
                 Bukkit.broadcastMessage("§c§l" + killer.getName() + " §cBERHASIL MEMBUNUH HUNTER! §e+5 POIN!");
             }
-            endRoundWithWinner(true);
+            Bukkit.broadcastMessage("§e" + hunter.getName() + " §f(Hunter) mati dan akan respawn!");
             return;
         }
 
+        // Ghost mati → respawn di spawn
+        if (gm.isParticipant(victim) && ghostPlayers.contains(victim.getUniqueId())) {
+            if (killer != null && gm.isParticipant(killer)) {
+                awardKillScore(killer, hunter);
+            }
+            return;
+        }
+
+        // Hider mati → eliminated, jadi ghost
         if (gm.isParticipant(victim) && !victim.equals(hunter)) {
             if (!eliminatedPlayers.contains(victim.getUniqueId())) {
                 eliminatedPlayers.add(victim.getUniqueId());
@@ -86,14 +101,42 @@ public class GameListener implements Listener {
                     return;
                 }
 
-                if (tryGiveGhostGear(victim)) {
-                    ghostPlayers.add(victim.getUniqueId());
-                }
+                ghostPlayers.add(victim.getUniqueId());
             }
         }
 
         if (killer != null && gm.isParticipant(killer)) {
             awardKillScore(killer, hunter);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        GameManager gm = plugin.getGameManager();
+        if (!gm.isGameRunning() || roundEnded) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        Player hunter = gm.getHunter();
+
+        // Hunter respawn → beri gear lagi setelah delay kecil
+        if (player.equals(hunter)) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline() && gm.isGameRunning() && !roundEnded) {
+                    giveHunterGear(player);
+                }
+            }, 5L);
+            return;
+        }
+
+        // Ghost respawn → beri ghost gear lagi setelah delay kecil
+        if (gm.isParticipant(player) && ghostPlayers.contains(player.getUniqueId())) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline() && gm.isGameRunning() && !roundEnded) {
+                    applyGhostGear(player);
+                }
+            }, 5L);
         }
     }
 
@@ -157,8 +200,8 @@ public class GameListener implements Listener {
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player p = event.getPlayer();
-        Location from = event.getFrom();
-        Location to = event.getTo();
+        org.bukkit.Location from = event.getFrom();
+        org.bukkit.Location to = event.getTo();
         if (to == null) {
             return;
         }
@@ -205,7 +248,7 @@ public class GameListener implements Listener {
                 double newDx = forwardSpeed * fx + rightSpeed * rx;
                 double newDz = forwardSpeed * fz + rightSpeed * rz;
 
-                Location newTo = from.clone();
+                org.bukkit.Location newTo = from.clone();
                 newTo.setX(from.getX() + newDx);
                 newTo.setY(to.getY());
                 newTo.setZ(from.getZ() + newDz);
@@ -259,29 +302,19 @@ public class GameListener implements Listener {
         if (p == null || !p.isOnline()) {
             return;
         }
-        p.getInventory().clear();
-        p.getInventory().addItem(new ItemStack(Material.NETHERITE_SWORD));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true);
-        p.sendMessage("§e⚔ Kamu diberikan Netherite Sword & Kekuatan Maksimal!");
-        Bukkit.broadcastMessage("§c§l" + p.getName() + " §csiap berburu!");
-    }
-
-    private boolean tryGiveGhostGear(Player p) {
-        if (roundEnded || !plugin.getGameManager().isGameRunning()) {
-            return false;
+        boolean hasSword = p.getInventory().contains(Material.DIAMOND_SWORD);
+        if (!hasSword) {
+            p.getInventory().addItem(new ItemStack(Material.DIAMOND_SWORD));
         }
-
-        if (p.isDead()) {
-            cancelPendingGhostTask(p.getUniqueId());
-            BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                pendingGhostTasks.remove(p.getUniqueId());
-                applyGhostGear(p);
-            }, 5L);
-            pendingGhostTasks.put(p.getUniqueId(), task);
-            return true;
+        
+        boolean hasStrength = p.hasPotionEffect(PotionEffectType.STRENGTH);
+        if (!hasStrength) {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 0), true);
         }
-
-        return applyGhostGear(p);
+        
+        if (!hasSword || !hasStrength) {
+            p.sendMessage("§e⚔ Kamu diberikan Diamond Sword & Strength!");
+        }
     }
 
     private boolean applyGhostGear(Player p) {
@@ -295,10 +328,19 @@ public class GameListener implements Listener {
             return false;
         }
 
-        p.getInventory().clear();
-        p.getInventory().addItem(new ItemStack(Material.NETHERITE_SWORD));
-        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 255), true);
-        p.sendMessage("§7[GHOST] §f👻 Kamu menjadi ghost! Dapatkan §c+1 Poin §funtuk setiap kill!");
+        boolean hasSword = p.getInventory().contains(Material.DIAMOND_SWORD);
+        if (!hasSword) {
+            p.getInventory().addItem(new ItemStack(Material.DIAMOND_SWORD));
+        }
+        
+        boolean hasStrength = p.hasPotionEffect(PotionEffectType.STRENGTH);
+        if (!hasStrength) {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 99999, 0), true);
+        }
+        
+        if (!hasSword || !hasStrength) {
+            p.sendMessage("§7[GHOST] §f👻 Kamu menjadi ghost! Dapatkan §c+1 Poin §funtuk setiap kill!");
+        }
         return true;
     }
 

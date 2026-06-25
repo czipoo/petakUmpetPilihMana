@@ -41,7 +41,15 @@ commands:
     description: "Gacha hunter dan mulai ronde baru"
     usage: "/nextround"
     permission: op
-  question:
-    description: "Picu pertanyaan Would You Rather spesifik untuk testing"
-    usage: "/question <nomor>"
+  setquestion:
+    description: "Set pertanyaan Would You Rather spesifik"
+    usage: "/setquestion <nomor>"
+    permission: op
+  settimer:
+    description: "Atur durasi permainan dalam menit (default 5)"
+    usage: "/settimer <menit>"
+    permission: op
+  commandinfo:
+    description: "Tampilkan daftar semua command beserta penjelasannya"
+    usage: "/commandinfo"
     permission: op

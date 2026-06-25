@@ -14,6 +14,7 @@ public class GameManager {
     private boolean awaitingNextRound = false;
     private boolean hidePhaseActive = false;
     private int deadCount = 0;
+    private int gameTimerMinutes = 5;
 
     private BukkitTask hidePhaseTask;
     private BukkitTask gachaTask;
@@ -98,13 +99,6 @@ public class GameManager {
         return gameRunning;
     }
 
-    public boolean isAwaitingNextRound() {
-        return awaitingNextRound;
-    }
-
-    public void setAwaitingNextRound(boolean state) {
-        this.awaitingNextRound = state;
-    }
 
     public boolean isHidePhaseActive() {
         return hidePhaseActive;
@@ -159,6 +153,14 @@ public class GameManager {
 
     public void resetDeadCount() {
         this.deadCount = 0;
+    }
+
+    public int getGameTimerMinutes() {
+        return gameTimerMinutes;
+    }
+
+    public void setGameTimerMinutes(int minutes) {
+        this.gameTimerMinutes = minutes;
     }
 
     public void setHidePhaseTask(BukkitTask task) {

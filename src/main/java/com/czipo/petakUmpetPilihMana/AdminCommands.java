@@ -126,6 +126,35 @@ public class AdminCommands implements CommandExecutor {
             ModMessages.sendToOps("§eGunakan §a/nextround §euntuk melanjutkan.");
         }
 
+        else if (label.equalsIgnoreCase("commandinfo")) {
+            sender.sendMessage("§8══════════════════════════════════");
+            sender.sendMessage("§6§l   DAFTAR COMMAND PETAK UMPET");
+            sender.sendMessage("§8══════════════════════════════════");
+            sender.sendMessage("");
+            sender.sendMessage("§e§l[REGISTRASI]");
+            sender.sendMessage("§a/regis <nama> §7- Daftarkan player ke tournament");
+            sender.sendMessage("§a/regisall §7- Daftarkan semua player online");
+            sender.sendMessage("§a/unregis <nama> §7- Hapus player dari daftar");
+            sender.sendMessage("§a/listplayer §7- Lihat daftar peserta terdaftar");
+            sender.sendMessage("");
+            sender.sendMessage("§e§l[PERMAINAN]");
+            sender.sendMessage("§a/start §7- Mulai tournament baru (gacha hunter)");
+            sender.sendMessage("§a/nextround §7- Lanjut ke ronde berikutnya");
+            sender.sendMessage("§a/resetgame §7- Reset ronde saat ini");
+            sender.sendMessage("§a/endgame §7- Akhiri seluruh tournament");
+            sender.sendMessage("");
+            sender.sendMessage("§e§l[PENGATURAN]");
+            sender.sendMessage("§a/settimer <menit> §7- Atur durasi permainan (default 5 menit)");
+            sender.sendMessage("§a/setquestion <nomor> §7- Set pertanyaan WYR (1-44)");
+            sender.sendMessage("  §7Saat permainan: override pertanyaan berikutnya");
+            sender.sendMessage("  §7Di luar permainan: tampilkan langsung ke semua player");
+            sender.sendMessage("");
+            sender.sendMessage("§e§l[INFO]");
+            sender.sendMessage("§a/listscore §7- Lihat leaderboard skor");
+            sender.sendMessage("§a/commandinfo §7- Tampilkan daftar command ini");
+            sender.sendMessage("§8══════════════════════════════════");
+        }
+
         return true;
     }
 

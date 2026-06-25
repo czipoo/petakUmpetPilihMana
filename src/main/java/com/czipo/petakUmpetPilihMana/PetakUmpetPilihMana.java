@@ -24,7 +24,9 @@ public final class PetakUmpetPilihMana extends JavaPlugin {
         if (getCommand("resetgame") != null) getCommand("resetgame").setExecutor(new AdminCommands(this));
         if (getCommand("endgame") != null) getCommand("endgame").setExecutor(new AdminCommands(this));
         if (getCommand("listscore") != null) getCommand("listscore").setExecutor(new AdminCommands(this));
-        if (getCommand("question") != null) getCommand("question").setExecutor(new GameCommands(this));
+        if (getCommand("setquestion") != null) getCommand("setquestion").setExecutor(new GameCommands(this));
+        if (getCommand("settimer") != null) getCommand("settimer").setExecutor(new GameCommands(this));
+        if (getCommand("commandinfo") != null) getCommand("commandinfo").setExecutor(new AdminCommands(this));
 
         getServer().getPluginManager().registerEvents(gameListener, this);
 

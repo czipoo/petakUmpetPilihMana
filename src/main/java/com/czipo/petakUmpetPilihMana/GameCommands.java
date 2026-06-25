@@ -86,20 +86,52 @@ public class GameCommands implements CommandExecutor {
             runGachaThenStart(available);
         }
 
-        else if (label.equalsIgnoreCase("question")) {
-            if (!(sender instanceof Player p)) {
-                sender.sendMessage("§cCommand ini hanya bisa dijalankan oleh Player!");
-                return true;
-            }
+        else if (label.equalsIgnoreCase("setquestion")) {
             if (args.length < 1) {
-                p.sendMessage("§cGunakan: /question <nomor>");
+                sender.sendMessage("§cGunakan: /setquestion <nomor>");
                 return true;
             }
             try {
                 int qId = Integer.parseInt(args[0]);
-                plugin.getPilihManaManager().triggerTestQuestion(p, qId);
+
+                if (gm.isPlaying()) {
+                    // Saat permainan: override pertanyaan berikutnya
+                    boolean success = plugin.getPilihManaManager().setNextQuestion(qId);
+                    if (success) {
+                        sender.sendMessage("§a[SET] §fPertanyaan berikutnya akan menggunakan Q" + qId + ".");
+                        ModMessages.sendToOps("§eMod mengatur pertanyaan berikutnya: §fQ" + qId);
+                    } else {
+                        sender.sendMessage("§cPertanyaan nomor " + qId + " tidak ditemukan (pilih 1-44).");
+                    }
+                } else {
+                    // Di luar permainan: tampilkan langsung ke semua participant
+                    plugin.getPilihManaManager().triggerStandaloneQuestion(qId, sender);
+                }
             } catch (NumberFormatException e) {
-                p.sendMessage("§cNomor pertanyaan harus berupa angka 1-25.");
+                sender.sendMessage("§cNomor pertanyaan harus berupa angka 1-44.");
+            }
+        }
+
+        else if (label.equalsIgnoreCase("settimer")) {
+            if (gm.isPlaying()) {
+                sender.sendMessage("§cTidak bisa mengatur timer saat permainan berlangsung!");
+                return true;
+            }
+            if (args.length < 1) {
+                sender.sendMessage("§cGunakan: /settimer <menit>");
+                return true;
+            }
+            try {
+                int minutes = Integer.parseInt(args[0]);
+                if (minutes < 1 || minutes > 60) {
+                    sender.sendMessage("§cTimer harus antara 1-60 menit.");
+                    return true;
+                }
+                gm.setGameTimerMinutes(minutes);
+                sender.sendMessage("§a[TIMER] §fDurasi permainan diatur ke §e" + minutes + " menit§f. (" + minutes + " pertanyaan WYR)");
+                ModMessages.sendToOps("§eDurasi permainan diubah ke §f" + minutes + " menit §eoleh " + sender.getName());
+            } catch (NumberFormatException e) {
+                sender.sendMessage("§cMasukkan angka yang valid!");
             }
         }
 
@@ -159,6 +191,7 @@ public class GameCommands implements CommandExecutor {
 
         Player hunter = gm.getHunter();
         final int hideMax = 60;
+        final int gameSeconds = gm.getGameTimerMinutes() * 60;
 
         BukkitRunnable hideRunnable = new BukkitRunnable() {
             int count = hideMax;
@@ -209,9 +242,9 @@ public class GameCommands implements CommandExecutor {
                     }
                     Bukkit.broadcastMessage("§c§lHUNTER DILEPASKAN!");
 
-                    bossBars.startSharedTimer(gm.getOnlineParticipants(), "Waktu Bermain", 300);
+                    bossBars.startSharedTimer(gm.getOnlineParticipants(), "Waktu Bermain", gameSeconds);
 
-                    GameLoopTask task = new GameLoopTask(plugin);
+                    GameLoopTask task = new GameLoopTask(plugin, gameSeconds);
                     gm.setGameLoopTask(task.runTaskTimer(plugin, 0L, 20L));
                 }
             }

@@ -6,15 +6,17 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 public class GameLoopTask extends BukkitRunnable {
     private final PetakUmpetPilihMana plugin;
-    private static final int HUNT_MAX_SECONDS = 300;
     private static final int WYR_MAX_SECONDS = 15;
 
-    private int totalSeconds = HUNT_MAX_SECONDS;
+    private final int huntMaxSeconds;
+    private int totalSeconds;
     private boolean isWyrActive = false;
     private int wyrCountdown = WYR_MAX_SECONDS;
 
-    public GameLoopTask(PetakUmpetPilihMana plugin) {
+    public GameLoopTask(PetakUmpetPilihMana plugin, int huntMaxSeconds) {
         this.plugin = plugin;
+        this.huntMaxSeconds = huntMaxSeconds;
+        this.totalSeconds = huntMaxSeconds;
     }
 
     public void startWyrPhase() {
@@ -85,7 +87,8 @@ public class GameLoopTask extends BukkitRunnable {
 
             bossBars.updateSharedTimer("Waktu Bermain", totalSeconds);
 
-            if (totalSeconds == 300 || totalSeconds == 240 || totalSeconds == 180 || totalSeconds == 120 || totalSeconds == 60) {
+            // Trigger WYR setiap 60 detik (tiap menit), termasuk di awal
+            if (totalSeconds % 60 == 0 && totalSeconds > 0) {
                 totalSeconds--;
                 startWyrPhase();
             } else {
