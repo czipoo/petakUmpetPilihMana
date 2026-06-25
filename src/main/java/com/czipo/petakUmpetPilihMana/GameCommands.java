@@ -101,14 +101,14 @@ public class GameCommands implements CommandExecutor {
                         sender.sendMessage("§a[SET] §fPertanyaan berikutnya akan menggunakan Q" + qId + ".");
                         ModMessages.sendToOps("§eMod mengatur pertanyaan berikutnya: §fQ" + qId);
                     } else {
-                        sender.sendMessage("§cPertanyaan nomor " + qId + " tidak ditemukan (pilih 1-44).");
+                        sender.sendMessage("§cPertanyaan nomor " + qId + " tidak ditemukan (pilih 1-47).");
                     }
                 } else {
                     // Di luar permainan: tampilkan langsung ke semua participant
                     plugin.getPilihManaManager().triggerStandaloneQuestion(qId, sender);
                 }
             } catch (NumberFormatException e) {
-                sender.sendMessage("§cNomor pertanyaan harus berupa angka 1-44.");
+                sender.sendMessage("§cNomor pertanyaan harus berupa angka 1-47.");
             }
         }
 

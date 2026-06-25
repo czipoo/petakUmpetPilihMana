@@ -11,6 +11,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -257,6 +258,19 @@ public class GameListener implements Listener {
 
                 event.setTo(newTo);
             }
+        }
+    }
+
+    @EventHandler
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        GameManager gm = plugin.getGameManager();
+        if (gm.isParticipant(event.getPlayer()) && event.getBucket() == Material.WATER_BUCKET) {
+            Player p = event.getPlayer();
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (p.isOnline()) {
+                    p.getInventory().setItemInMainHand(new ItemStack(Material.WATER_BUCKET));
+                }
+            }, 1L);
         }
     }
 

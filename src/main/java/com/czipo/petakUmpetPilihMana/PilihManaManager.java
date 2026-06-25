@@ -10,6 +10,9 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
 
@@ -154,10 +157,10 @@ public class PilihManaManager {
             org.bukkit.entity.BlockDisplay display = p.getWorld().spawn(loc, org.bukkit.entity.BlockDisplay.class);
             display.setBlock(blockType.createBlockData());
             display.setTransformation(new org.bukkit.util.Transformation(
-                new org.bukkit.joml.Vector3f(0, -1, 0),
-                new org.bukkit.joml.Quaternionf(),
-                new org.bukkit.joml.Vector3f(1, 1, 1),
-                new org.bukkit.joml.Quaternionf()
+                new org.joml.Vector3f(0, -1, 0),
+                new org.joml.Quaternionf(),
+                new org.joml.Vector3f(1, 1, 1),
+                new org.joml.Quaternionf()
             ));
 
             mgr.activeBlockDisguises.put(p.getUniqueId(), display);
@@ -184,7 +187,7 @@ public class PilihManaManager {
     public static CustomEffect giveItems(org.bukkit.Material... items) {
         return (p, mgr) -> {
             for (org.bukkit.Material item : items) {
-                ItemStack stack = new ItemStack(item, 1);
+                org.bukkit.inventory.ItemStack stack = new org.bukkit.inventory.ItemStack(item, 1);
                 p.getInventory().addItem(stack);
             }
             p.sendMessage("§a[EFEK] §fKamu mendapatkan item sekali pakai!");
@@ -367,7 +370,7 @@ ActionButton placeholder = ActionButton.builder(Component.empty())
         }
 
         if (found == null) {
-            sender.sendMessage("§cPertanyaan ke " + questionId + " tidak ditemukan (pilih 1-44).");
+            sender.sendMessage("§cPertanyaan ke " + questionId + " tidak ditemukan (pilih 1-47).");
             return;
         }
 
@@ -556,40 +559,68 @@ ActionButton placeholder = ActionButton.builder(Component.empty())
     // === Effect Application ===
 
     private void applyEffect(Player p, Question q, boolean isOptionA) {
-        String[] cmds = isOptionA ? q.cmdA : q.cmdB;
-        int duration = isOptionA ? q.durationA : q.durationB;
-        CustomEffect custom = isOptionA ? q.customA : q.customB;
+    String[] cmds = isOptionA ? q.cmdA : q.cmdB;
+    int duration = isOptionA ? q.durationA : q.durationB;
+    CustomEffect custom = isOptionA ? q.customA : q.customB;
 
-        p.sendMessage("§a[EFEK] §fMenerapkan efek pilihanmu selama §e" + duration + "s§f!");
-        p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+    p.sendMessage("§a[EFEK] §fMenerapkan efek pilihanmu selama §e" + duration + "s§f!");
+    p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
 
-        if (cmds != null) {
-            for (String cmd : cmds) {
-                String cmdProcessed = cmd.replace("@s", p.getName()).trim();
-                if (cmdProcessed.startsWith("/")) {
-                    cmdProcessed = cmdProcessed.substring(1);
-                }
-                SilentCommands.run(cmdProcessed);
+    // Daftar tugas yang harus dijalankan saat efek habis
+    List<Runnable> cleanups = new ArrayList<>();
+
+    if (cmds != null) {
+        for (String cmd : cmds) {
+            String cmdProcessed = cmd.replace("@s", p.getName()).trim();
+            if (cmdProcessed.startsWith("/")) {
+                cmdProcessed = cmdProcessed.substring(1);
             }
-        }
 
-        if (custom != null) {
-            custom.execute(p, this);
-        }
-
-        if (duration > 0) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    if (p.isOnline()) {
-                        resetPlayerEffects(p);
-                        p.sendMessage("§e[INFO] §fEfek pilihan Anda telah habis.");
-                        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+            // === Handle khusus: pasang BARRIER di Java ===
+            if (cmdProcessed.startsWith("setblock") && cmdProcessed.contains("barrier")) {
+                Location center = p.getLocation().clone();
+                center.setY(102);
+                for (int x = -1; x <= 1; x++) {
+                    for (int z = -1; z <= 1; z++) {
+                        final Block block = center.clone().add(x, 0, z).getBlock();
+                        final org.bukkit.block.data.BlockData oldData = block.getBlockData();
+                        block.setType(Material.BARRIER);
+                        cleanups.add(() -> block.setBlockData(oldData));
                     }
                 }
-            }.runTaskLater(plugin, duration * 20L);
+                continue;
+            }
+
+            // === Handle khusus: beri WATER BUCKET di Java ===
+            if (cmdProcessed.startsWith("give") && cmdProcessed.contains("water_bucket")) {
+                p.getInventory().addItem(new ItemStack(Material.WATER_BUCKET));
+                continue;
+            }
+
+            SilentCommands.run(cmdProcessed);
         }
     }
+
+    if (custom != null) {
+        custom.execute(p, this);
+    }
+
+    if (duration > 0) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (p.isOnline()) {
+                    resetPlayerEffects(p);
+                    cleanups.forEach(Runnable::run); // <-- jalankan cleanup (hapus block + water bucket)
+                    p.sendMessage("§e[INFO] §fEfek pilihan Anda telah habis.");
+                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+                } else {
+                    cleanups.forEach(Runnable::run); // tetap bersihkan block meski player offline
+                }
+            }
+        }.runTaskLater(plugin, duration * 20L);
+    }
+}
 
     // === Effect Management ===
 
@@ -868,274 +899,276 @@ ActionButton placeholder = ActionButton.builder(Component.empty())
     // Q9–Q15 : JUMP, GRAVITY & MOVEMENT
     // ═══════════════════════════════════════════════════════════
 
-    // Q9 - Lompat tinggi vs Jatuh aman
-    Question q9 = new Question(9, "Lompat sangat tinggi", "Jatuh perlahan seperti balon",
+    // Q8 - Lompat tinggi vs Jatuh aman
+    Question q8 = new Question(8, "L1ompat sangat tinggi", "Jatuh perlahan seperti balon",
         new String[]{"/attribute @s minecraft:jump_strength base set 2.0"},
         new String[]{"/attribute @s minecraft:gravity base set 0.01"}, 40, 40);
-    questionRegistry.add(q9);
+    questionRegistry.add(q8);
 
-    // Q10 - Gravitasi terbalik vs Gravitasi ekstrem
-    Question q10 = new Question(10, "Gravitasi terbalik", "Gravitasi ke bawah sangat kuat",
-        new String[]{"/attribute @s minecraft:gravity base set -0.08"},
+    // Q9 - Gravitasi terbalik vs Gravitasi ekstrem
+    Question q9 = new Question(9, "Gravitasi terbalik", "Gravitasi ke bawah sangat kuat",
+        new String[]{"/attribute @s minecraft:gravity base set -0.08",
+        "/give @s minecraft:water_bucket",
+        "/setblock ~ 102 ~ barrier"},
         new String[]{"/attribute @s minecraft:gravity base set 0.25",
                      "/attribute @s minecraft:movement_speed base set 0.3"}, 35, 35);
-    questionRegistry.add(q10);
+    questionRegistry.add(q9);
 
-    // Q11 - Safe fall vs Fall damage x5
-    Question q11 = new Question(11, "Tidak pernah terluka jatuh", "Gugur seperti batu bata",
+    // Q10 - Safe fall vs Fall damage x5
+    Question q10 = new Question(10, "Tidak pernah terluka jatuh", "Gugur seperti batu bata",
         new String[]{"/attribute @s minecraft:safe_fall_distance base set 100.0"},
         new String[]{"/attribute @s minecraft:fall_damage_multiplier base set 5.0"}, 40, 40);
-    questionRegistry.add(q11);
+    questionRegistry.add(q10);
 
-    // Q12 - Lompat + aman vs Sprint tapi no jump
-    Question q12 = new Question(12, "Melompat berkali-kali di udara", "Secepat roket tapi tak bisa lompat",
+    // Q11 - Lompat + aman vs Sprint tapi no jump
+    Question q11 = new Question(11, "Melompat berkali-kali di udara", "Secepat roket tapi tak bisa lompat",
         new String[]{"/attribute @s minecraft:jump_strength base set 1.8",
                      "/attribute @s minecraft:safe_fall_distance base set 30.0"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.55",
                      "/attribute @s minecraft:jump_strength base set 0.0"}, 40, 40);
-    questionRegistry.add(q12);
+    questionRegistry.add(q11);
 
-    // Q13 - Levitation vs Slow falling
-    Question q13 = new Question(13, "Terangkat ke atas tanpa kendali", "Turun perlahan tak berujung",
+    // Q12 - Levitation vs Slow falling
+    Question q12 = new Question(12, "Terangkat ke atas tanpa kendali", "Turun perlahan tak berujung",
         new String[]{"/effect give @s levitation 20 2"},
         new String[]{"/effect give @s slow_falling 45 0",
                      "/attribute @s minecraft:jump_strength base set 0.1"}, 20, 45);
-    questionRegistry.add(q13);
+    questionRegistry.add(q12);
 
-    // Q14 - Super speed vs Super slow
-    Question q14 = new Question(14, "Berlari super cepat", "Bergerak seperti siput",
+    // Q13 - Super speed vs Super slow
+    Question q13 = new Question(13, "Berlari super cepat", "Bergerak seperti siput",
         new String[]{"/attribute @s minecraft:movement_speed base set 0.5"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.05"}, 40, 40);
-    questionRegistry.add(q14);
+    questionRegistry.add(q13);
 
-    // Q15 - Jalan jongkok cepat vs Sprint + slow fall
-    Question q15 = new Question(15, "Jalan jongkok secepat sprint", "Sprint tapi melayang sedikit",
+    // Q14 - Jalan jongkok cepat vs Sprint + slow fall
+    Question q14 = new Question(14, "Jalan jongkok secepat sprint", "Sprint tapi melayang sedikit",
         new String[]{"/attribute @s minecraft:sneaking_speed base set 0.15"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.35",
                      "/effect give @s slow_falling 40 0"}, 45, 40);
-    questionRegistry.add(q15);
+    questionRegistry.add(q14);
 
     // ═══════════════════════════════════════════════════════════
     // Q16–Q22 : COMBAT & STRENGTH
     // ═══════════════════════════════════════════════════════════
 
-    // Q16 - Attack damage vs Attack speed
-    Question q16 = new Question(16, "Pukulan super kuat", "Pukulan sangat cepat",
+    // Q15 - Attack damage vs Attack speed
+    Question q15 = new Question(15, "Pukulan super kuat", "Pukulan sangat cepat",
         new String[]{"/attribute @s minecraft:attack_damage base set 25.0"},
         new String[]{"/attribute @s minecraft:attack_speed base set 16.0"}, 40, 40);
-    questionRegistry.add(q16);
+    questionRegistry.add(q15);
 
-    // Q17 - Knockback resist vs Fire resistance
-    Question q17 = new Question(17, "Tahan dari smackdown", "Tahan dari api",
+    // Q16 - Knockback resist vs Fire resistance
+    Question q16 = new Question(16, "Tahan dari smackdown", "Tahan dari api",
         new String[]{"/attribute @s minecraft:knockback_resistance base set 1.0"},
         new String[]{"/effect give @s fire_resistance 45 0"}, 45, 45);
-    questionRegistry.add(q17);
+    questionRegistry.add(q16);
 
-    // Q18 - Armor tinggi vs Attack damage tinggi
-    Question q18 = new Question(18, "Kulit sekeras baja", "Pukulan sepedas cabai",
+    // Q17 - Armor tinggi vs Attack damage tinggi
+    Question q17 = new Question(17, "Kulit sekeras baja", "Pukulan sepedas cabai",
         new String[]{"/attribute @s minecraft:armor base set 20.0",
                      "/attribute @s minecraft:armor_toughness base set 10.0"},
         new String[]{"/attribute @s minecraft:attack_damage base set 15.0",
                      "/attribute @s minecraft:attack_speed base set 8.0"}, 40, 40);
-    questionRegistry.add(q18);
+    questionRegistry.add(q17);
 
-    // Q19 - Knockback kuat + speed vs Knockback resist
-    Question q19 = new Question(19, "Terpental jauh saat dipukul", "Tidak terpental sama sekali",
+    // Q18 - Knockback kuat + speed vs Knockback resist
+    Question q18 = new Question(18, "Terpental jauh saat dipukul", "Tidak terpental sama sekali",
         new String[]{"/attribute @s minecraft:knockback_resistance base set 0.0",
                      "/attribute @s minecraft:movement_speed base set 0.4"},
         new String[]{"/attribute @s minecraft:knockback_resistance base set 1.0"}, 40, 40);
-    questionRegistry.add(q19);
+    questionRegistry.add(q18);
 
-    // Q20 - Benteng berjalan vs Pedang tanpa ampun
-    Question q20 = new Question(20, "Benteng berjalan", "Pedang tanpa ampun",
+    // Q19 - Benteng berjalan vs Pedang tanpa ampun
+    Question q19 = new Question(19, "Benteng berjalan", "Pedang tanpa ampun",
         new String[]{"/effect give @s resistance 40 2",
                      "/attribute @s minecraft:armor base set 25.0"},
         new String[]{"/attribute @s minecraft:attack_damage base set 30.0",
                      "/attribute @s minecraft:armor base set 0.0"}, 40, 40);
-    questionRegistry.add(q20);
+    questionRegistry.add(q19);
 
-    // Q21 - Totem vs Strength III
-    Question q21 = new Question(21, "Satu kali tidak bisa mati", "Pukulan mematikan sesaat",
+    // Q20 - Totem vs Strength III
+    Question q20 = new Question(20, "Satu kali tidak bisa mati", "Pukulan mematikan sesaat",
         new String[]{"/give @s minecraft:totem_of_undying 1"},
         new String[]{"/effect give @s strength 30 3"}, 999, 30);
-    questionRegistry.add(q21);
+    questionRegistry.add(q20);
 
-    // Q22 - Kuat + tahan banting vs Cepat + lompat
-    Question q22 = new Question(22, "Kuat + tahan banting", "Cepat + lompat tinggi",
+    // Q21 - Kuat + tahan banting vs Cepat + lompat
+    Question q21 = new Question(21, "Kuat + tahan banting", "Cepat + lompat tinggi",
         new String[]{"/attribute @s minecraft:attack_damage base set 20.0",
                      "/attribute @s minecraft:knockback_resistance base set 1.0"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.35",
                      "/attribute @s minecraft:jump_strength base set 1.8"}, 40, 40);
-    questionRegistry.add(q22);
+    questionRegistry.add(q21);
 
     // ═══════════════════════════════════════════════════════════
     // Q23–Q30 : VISUAL & PERCEPTION
     // ═══════════════════════════════════════════════════════════
 
-    // Q23 - Invisible vs Glowing
-    Question q23 = new Question(23, "Menjadi tak terlihat", "Bersinar terang",
+    // Q22 - Invisible vs Glowing
+    Question q22 = new Question(22, "Menjadi tak terlihat", "Bersinar terang",
         new String[]{"/effect give @s invisibility 30 0"},
         new String[]{"/effect give @s glowing 35 0"}, 30, 35);
-    questionRegistry.add(q23);
+    questionRegistry.add(q22);
 
-    // Q24 - Blindness vs Nausea
-    Question q24 = new Question(24, "Menjadi buta total", "Mabuk kepala keras",
+    // Q23 - Blindness vs Nausea
+    Question q23 = new Question(23, "Menjadi buta total", "Mabuk kepala keras",
         new String[]{"/effect give @s blindness 45 0"},
         new String[]{"/effect give @s nausea 45 0"}, 45, 45);
-    questionRegistry.add(q24);
+    questionRegistry.add(q23);
 
-    // Q25 - Night vision vs Water breathing
-    Question q25 = new Question(25, "Melihat dengan jelas di malam hari", "Hidup di dalam air",
+    // Q24 - Night vision vs Water breathing
+    Question q24 = new Question(24, "Melihat dengan jelas di malam hari", "Hidup di dalam air",
         new String[]{"/effect give @s night_vision 40 0"},
         new String[]{"/effect give @s water_breathing 45 0",
                      "/effect give @s dolphins_grace 45 0"}, 40, 45);
-    questionRegistry.add(q25);
+    questionRegistry.add(q24);
 
-    // Q26 - Glowing + night vision vs Invisible + blindness
-    Question q26 = new Question(26, "Bersinar tapi bisa lihat semuanya", "Tak terlihat tapi ikut gelap",
+    // Q25 - Glowing + night vision vs Invisible + blindness
+    Question q25 = new Question(25, "Bersinar tapi bisa lihat semuanya", "Tak terlihat tapi ikut gelap",
         new String[]{"/effect give @s glowing 35 0",
                      "/effect give @s night_vision 35 0"},
         new String[]{"/effect give @s invisibility 35 0",
                      "/effect give @s blindness 15 0"}, 35, 35);
-    questionRegistry.add(q26);
+    questionRegistry.add(q25);
 
-    // Q27 - Speed + blindness vs Slow + night vision
-    Question q27 = new Question(27, "Lari kencang tapi buta", "Berjalan lambat tapi melihat segalanya",
+    // Q26 - Speed + blindness vs Slow + night vision
+    Question q26 = new Question(26, "Lari kencang tapi buta", "Berjalan lambat tapi melihat segalanya",
         new String[]{"/effect give @s speed 40 3",
                      "/effect give @s blindness 40 0"},
         new String[]{"/effect give @s slowness 40 1",
                      "/effect give @s night_vision 40 0"}, 40, 40);
-    questionRegistry.add(q27);
+    questionRegistry.add(q26);
 
-    // Q28 - Glowing semua orang tahu posisi vs Biasa tapi semua melihatmu
-    Question q28 = new Question(28, "Semua bisa melihatmu dari mana saja", "Kamu bisa melihat semua orang",
+    // Q27 - Glowing semua orang tahu posisi vs Biasa tapi semua melihatmu
+    Question q27 = new Question(27, "Semua bisa melihatmu dari mana saja", "Kamu bisa melihat semua orang",
         new String[]{"/effect give @s glowing 60 0"},
         new String[]{"/effect give @s night_vision 60 0",
                      "/effect give @s speed 60 0"}, 60, 60);
-    questionRegistry.add(q28);
+    questionRegistry.add(q27);
 
 
-    // Q29 - Invisible + slow vs Glowing + speed (chaos trade-off)
-    Question q29 = new Question(29, "Tak terlihat + lambat", "Bersinar + cepat",
+    // Q28 - Invisible + slow vs Glowing + speed (chaos trade-off)
+    Question q28 = new Question(28, "Tak terlihat + lambat", "Bersinar + cepat",
         new String[]{"/effect give @s invisibility 40 0",
                      "/effect give @s slowness 40 1"},
         new String[]{"/effect give @s glowing 40 0",
                      "/effect give @s speed 40 2"}, 40, 40);
-    questionRegistry.add(q29);
+    questionRegistry.add(q28);
 
     // ═══════════════════════════════════════════════════════════
     // Q31–Q37 : HEALTH & SURVIVAL
     // ═══════════════════════════════════════════════════════════
 
-    // Q31 - HP tinggi vs HP rendah + speed
-    Question q31 = new Question(31, "Nyawa berlipat ganda", "Setengah nyawa tapi secepat kilat",
+    // Q29 - HP tinggi vs HP rendah + speed
+    Question q29 = new Question(29, "Nyawa berlipat ganda", "Setengah nyawa tapi secepat kilat",
         new String[]{"/attribute @s minecraft:max_health base set 40.0",
                      "/effect give @s instant_health 1 0"},
         new String[]{"/attribute @s minecraft:max_health base set 10.0",
                      "/attribute @s minecraft:movement_speed base set 0.45"}, 40, 40);
-    questionRegistry.add(q31);
+    questionRegistry.add(q29);
 
-    // Q32 - Regenerasi vs Poison + speed
-    Question q32 = new Question(32, "Terus menerus sembuh sendiri", "Terus menerus keracunan",
+    // Q30 - Regenerasi vs Poison + speed
+    Question q30 = new Question(30, "Terus menerus sembuh sendiri", "Terus menerus keracunan",
         new String[]{"/effect give @s regeneration 45 2"},
         new String[]{"/effect give @s poison 45 1",
                      "/effect give @s speed 45 2"}, 45, 45);
-    questionRegistry.add(q32);
+    questionRegistry.add(q30);
 
-    // Q33 - Slow fall vs Lompat tinggi + fall dmg
-    Question q33 = new Question(33, "Jatuh pelan seperti daun", "Lompat sangat tinggi tapi jatuh keras",
+    // Q31 - Slow fall vs Lompat tinggi + fall dmg
+    Question q31 = new Question(31, "Jatuh pelan seperti daun", "Lompat sangat tinggi tapi jatuh keras",
         new String[]{"/effect give @s slow_falling 45 0"},
         new String[]{"/attribute @s minecraft:jump_strength base set 2.8",
                      "/attribute @s minecraft:fall_damage_multiplier base set 3.0"}, 45, 45);
-    questionRegistry.add(q33);
+    questionRegistry.add(q31);
 
-    // Q34 - Armor tinggi vs Regen + resistance
-    Question q34 = new Question(34, "Kulit anti peluru", "Tubuh yang sembuh terus",
+    // Q32 - Armor tinggi vs Regen + resistance
+    Question q32 = new Question(32, "Kulit anti peluru", "Tubuh yang sembuh terus",
         new String[]{"/attribute @s minecraft:armor base set 30.0",
                      "/attribute @s minecraft:armor_toughness base set 15.0"},
         new String[]{"/effect give @s regeneration 45 1",
                      "/effect give @s resistance 45 0"}, 45, 45);
-    questionRegistry.add(q34);
+    questionRegistry.add(q32);
 
-    // Q35 - Totem + slow vs No totem + kuat
-    Question q35 = new Question(35, "Tidak mati tapi sangat lambat", "Sangat kuat tapi bisa mati sekali",
+    // Q33 - Totem + slow vs No totem + kuat
+    Question q33 = new Question(33, "Tidak mati tapi sangat lambat", "Sangat kuat tapi bisa mati sekali",
         new String[]{"/give @s minecraft:totem_of_undying 1",
                      "/effect give @s slowness 999 3"},
         new String[]{"/attribute @s minecraft:attack_damage base set 25.0",
                      "/attribute @s minecraft:movement_speed base set 0.4"}, 999, 40);
-    questionRegistry.add(q35);
+    questionRegistry.add(q33);
 
-    // Q36 - Saturation vs Hunger + damage
-    Question q36 = new Question(36, "Kenyang selamanya sesaat", "Selalu lapar tapi lebih kuat",
+    // Q34 - Saturation vs Hunger + damage
+    Question q34 = new Question(34, "Kenyang selamanya sesaat", "Selalu lapar tapi lebih kuat",
         new String[]{"/effect give @s saturation 45 5"},
         new String[]{"/effect give @s hunger 45 3",
                      "/attribute @s minecraft:attack_damage base set 18.0"}, 45, 45);
-    questionRegistry.add(q36);
+    questionRegistry.add(q34);
 
-    // Q37 - Fire resist vs Water breathing + speed air
-    Question q37 = new Question(37, "Kebal dari api dan lava", "Kebal dari air dan tenggelam",
+    // Q35 - Fire resist vs Water breathing + speed air
+    Question q35 = new Question(35, "Kebal dari api dan lava", "Kebal dari air dan tenggelam",
         new String[]{"/effect give @s fire_resistance 45 0"},
         new String[]{"/effect give @s water_breathing 45 0",
                      "/effect give @s dolphins_grace 45 0"}, 45, 45);
-    questionRegistry.add(q37);
+    questionRegistry.add(q35);
 
     // ═══════════════════════════════════════════════════════════
     // Q38–Q44 : KOMBINASI KOMPLEKS
     // ═══════════════════════════════════════════════════════════
 
-    // Q38 - Lompat tinggi + aman vs Cepat + gravitasi rendah
-    Question q38 = new Question(38, "Lompat tinggi + jatuh aman", "Cepat + tanpa gravitasi",
+    // Q36 - Lompat tinggi + aman vs Cepat + gravitasi rendah
+    Question q36 = new Question(36, "Lompat tinggi + jatuh aman", "Cepat + tanpa gravitasi",
         new String[]{"/attribute @s minecraft:jump_strength base set 2.5",
                      "/attribute @s minecraft:safe_fall_distance base set 50.0"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.4",
                      "/attribute @s minecraft:gravity base set 0.02"}, 40, 40);
-    questionRegistry.add(q38);
+    questionRegistry.add(q36);
 
 
-    // Q39 - Speed + nausea vs Slow + strength
-    Question q39 = new Question(39, "Berlari kencang sambil pusing", "Diam tapi mematikan",
+    // Q37 - Speed + nausea vs Slow + strength
+    Question q37 = new Question(37, "Berlari kencang sambil pusing", "Diam tapi mematikan",
         new String[]{"/effect give @s speed 35 3",
                      "/effect give @s nausea 35 0"},
         new String[]{"/effect give @s strength 35 2",
                      "/attribute @s minecraft:movement_speed base set 0.1"}, 35, 35);
-    questionRegistry.add(q39);
+    questionRegistry.add(q37);
 
-    // Q40 - Kokoh + lambat vs Cepat + mudah terpental
-    Question q40 = new Question(40, "Kokoh bak gunung, selambat siput", "Kencang bak angin, ringan bak bulu",
+    // Q38 - Kokoh + lambat vs Cepat + mudah terpental
+    Question q38 = new Question(38, "Kokoh bak gunung, selambat siput", "Kencang bak angin, ringan bak bulu",
         new String[]{"/attribute @s minecraft:knockback_resistance base set 1.0",
                      "/effect give @s slowness 40 3"},
         new String[]{"/attribute @s minecraft:movement_speed base set 0.5",
                      "/attribute @s minecraft:knockback_resistance base set 0.0"}, 40, 40);
-    questionRegistry.add(q40);
+    questionRegistry.add(q38);
 
-    // Q41 - Step height tinggi vs Interaction range jauh
-    Question q41 = new Question(41, "Bisa naik tebing tanpa lompat", "Jangkauan serangan jauh",
+    // Q39 - Step height tinggi vs Interaction range jauh
+    Question q39 = new Question(39, "Bisa naik tebing tanpa lompat", "Jangkauan serangan jauh",
         new String[]{"/attribute @s minecraft:step_height base set 2.0"},
         new String[]{"/attribute @s minecraft:attack_knockback base set 4.0"}, 45, 45);
-    questionRegistry.add(q41);
+    questionRegistry.add(q39);
 
-    // Q42 - Sangat ringan melayang vs Sangat berat ke bawah
-    Question q42 = new Question(42, "Tubuh sangat ringan melayang", "Tubuh sangat berat ke bawah",
+    // Q40 - Sangat ringan melayang vs Sangat berat ke bawah
+    Question q40 = new Question(40, "Tubuh sangat ringan melayang", "Tubuh sangat berat ke bawah",
         new String[]{"/attribute @s minecraft:gravity base set -0.02",
                      "/attribute @s minecraft:jump_strength base set 0.6"},
         new String[]{"/attribute @s minecraft:gravity base set 0.25",
                      "/attribute @s minecraft:movement_speed base set 0.3"}, 40, 40);
-    questionRegistry.add(q42);
+    questionRegistry.add(q40);
 
-    // Q43 - Speed + jump vs Armor + damage
-    Question q43 = new Question(43, "Kijang di padang savana", "Hantu yang berlari",
+    // Q41 - Speed + jump vs Armor + damage
+    Question q41 = new Question(41, "Kijang di padang savana", "Hantu yang berlari",
         new String[]{"/effect give @s speed 40 1",
                      "/effect give @s jump_boost 40 1"},
         new String[]{"/effect give @s speed 40 0",
                      "/effect give @s invisibility 40 0"}, 40, 40);
-    questionRegistry.add(q43);
+    questionRegistry.add(q41);
 
     // ═══════════════════════════════════════════════════════════
     // Q44–Q49 : SITUASIONAL & CHAOS
     // ═══════════════════════════════════════════════════════════
 
-    // Q44 - CHAOS: semua naik tapi blindness vs Semua turun tapi invisible
-    Question q44 = new Question(44, "Luar biasa... tapi tidak melihat apa-apa", "Biasa saja... tapi semua melihatmu",
+    // Q42 - CHAOS: semua naik tapi blindness vs Semua turun tapi invisible
+    Question q42 = new Question(42, "Luar biasa... tapi tidak melihat apa-apa", "Biasa saja... tapi semua melihatmu",
         new String[]{"/attribute @s minecraft:movement_speed base set 0.45",
                      "/attribute @s minecraft:attack_damage base set 22.0",
                      "/attribute @s minecraft:jump_strength base set 2.2",
@@ -1144,7 +1177,7 @@ ActionButton placeholder = ActionButton.builder(Component.empty())
         new String[]{"/effect give @s glowing 60 0",
                      "/effect give @s regeneration 60 0",
                      "/effect give @s speed 60 1"}, 60, 60);
-    questionRegistry.add(q44);
+    questionRegistry.add(q42);
 
     // ═══════════════════════════════════════════════════════════
     // Q45–Q49 : SPECIAL EFFECTS
@@ -1156,44 +1189,44 @@ ActionButton placeholder = ActionButton.builder(Component.empty())
 
 
 
-    // Q45 - Random Teleport All vs Random Teleport Hiders
-    Question q45 = new Question(45, "Semua pemain bertukar posisi", "Hiders bertukar posisi",
+    // Q43 - Random Teleport All vs Random Teleport Hiders
+    Question q43 = new Question(43, "Semua pemain bertukar posisi", "Hiders bertukar posisi",
         new String[]{},
         new String[]{}, 0, 0)
         .setCustomA(randomTeleportAll())
         .setCustomB(randomTeleportHiders());
-    questionRegistry.add(q45);
+    questionRegistry.add(q43);
 
-    // Q46 - Block Disguise Grass vs Block Disguise Stone
-    Question q46 = new Question(46, "Menyamar sebagai rumput", "Menyamar sebagai batu",
+    // Q44 - Block Disguise Grass vs Block Disguise Stone
+    Question q44 = new Question(44, "Menyamar sebagai rumput", "Menyamar sebagai batu",
         new String[]{},
         new String[]{}, 40, 40)
         .setCustomA(blockDisguise(Material.GRASS_BLOCK, 40))
         .setCustomB(blockDisguise(Material.STONE, 40));
-    questionRegistry.add(q46);
+    questionRegistry.add(q44);
 
-    // Q47 - Bow & Arrow vs Crossbow
-    Question q47 = new Question(47, "Dapatkan bow sekali pakai", "Dapatkan crossbow sekali pakai",
+    // Q45 - Bow & Arrow vs Crossbow
+    Question q45 = new Question(45, "Dapatkan bow sekali pakai", "Dapatkan crossbow sekali pakai",
         new String[]{},
         new String[]{}, 0, 0)
         .setCustomA(giveItems(Material.BOW, Material.ARROW))
         .setCustomB(giveItems(Material.CROSSBOW, Material.ARROW));
-    questionRegistry.add(q47);
+    questionRegistry.add(q45);
 
-    // Q48 - Mace & Wind Charge vs Ender Pearl
-    Question q48 = new Question(48, "Dapatkan mace & wind charge", "Dapatkan ender pearl",
+    // Q46 - Mace & Wind Charge vs Ender Pearl
+    Question q46 = new Question(46, "Dapatkan mace & wind charge", "Dapatkan ender pearl",
         new String[]{},
         new String[]{}, 0, 0)
         .setCustomA(giveItems(Material.MACE, Material.WIND_CHARGE))
         .setCustomB(giveItems(Material.ENDER_PEARL));
-    questionRegistry.add(q48);
+    questionRegistry.add(q46);
 
-    // Q49 - Summon Firework vs Extra Speed
-    Question q49 = new Question(49, "Summon kembang api", "Kecepatan ekstra",
+    // Q47 - Summon Firework vs Extra Speed
+    Question q47 = new Question(47, "Summon kembang api", "Kecepatan ekstra",
         new String[]{},
         new String[]{"/effect give @s speed 30 2"}, 0, 30)
         .setCustomA(summonFirework());
-    questionRegistry.add(q49);
+    questionRegistry.add(q47);
 
 }
 }

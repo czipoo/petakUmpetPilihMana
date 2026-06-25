@@ -145,7 +145,7 @@ public class AdminCommands implements CommandExecutor {
             sender.sendMessage("");
             sender.sendMessage("§e§l[PENGATURAN]");
             sender.sendMessage("§a/settimer <menit> §7- Atur durasi permainan (default 5 menit)");
-            sender.sendMessage("§a/setquestion <nomor> §7- Set pertanyaan WYR (1-44)");
+            sender.sendMessage("§a/setquestion <nomor> §7- Set pertanyaan WYR (1-47)");
             sender.sendMessage("  §7Saat permainan: override pertanyaan berikutnya");
             sender.sendMessage("  §7Di luar permainan: tampilkan langsung ke semua player");
             sender.sendMessage("");
