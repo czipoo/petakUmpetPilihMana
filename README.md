@@ -201,4 +201,54 @@ Tiap menit ada 2 pilihan.
 ### #40
 **Berlari kencang sambil pusing** (`effect speed 35 3`, `effect nausea 35 0`)
 *atau*
-**Diam tapi mematikan** (`effect strength 35 2`, `attribute
+**Diam tapi mematikan** (`effect strength 35 2`, `attribute movement_speed 0.1`)
+
+### #41
+**Kokoh bak gunung, selambat siput** (`attribute knockback_resistance 1.0`, `effect slowness 40 3`)
+*atau*
+**Kencang bak angin, ringan bak bulu** (`attribute movement_speed 0.5`, `attribute knockback_resistance 0.0`)
+
+### #42
+**Bisa naik tebing tanpa lompat** (`attribute step_height 2.0`)
+*atau*
+**Jangkauan serangan jauh** (`attribute attack_knockback 4.0`)
+
+### #43
+**Tubuh sangat ringan melayang** (`attribute gravity -0.02`, `attribute jump_strength 0.6`)
+*atau*
+**Tubuh sangat berat ke bawah** (`attribute gravity 0.25`, `attribute movement_speed 0.3`)
+
+### #44
+**Kijang di padang savana** (`effect speed 40 1`, `effect jump_boost 40 1`)
+*atau*
+**Hantu yang berlari** (`effect speed 40 0`, `effect invisibility 40 0`)
+
+### #45
+**Kekuatan maksimal** (`effect strength 40 2`)
+*atau*
+**Regenerasi diri sendiri** (`effect regeneration 40 1`)
+
+### #46
+**Luar biasa tapi semua melihatmu** (`attribute movement_speed 0.4`, `attribute attack_damage 20.0`, `attribute jump_strength 2.0`, `effect glowing 50 0`)
+*atau*
+**Biasa saja tapi tak terlihat** (`effect invisibility 50 0`, `attribute movement_speed 0.15`)
+
+### #47
+**Seperti tank berjalan** (`attribute max_health 50.0`, `attribute armor 20.0`, `effect instant_health 1 3`)
+*atau*
+**Seperti angin bertiup** (`attribute movement_speed 0.6`, `attribute knockback_resistance 0.0`, `attribute max_health 6.0`)
+
+### #48
+**Berjalan di dinding** (`attribute gravity 0.0`, `attribute jump_strength 1.0`, `attribute movement_speed 0.25`)
+*atau*
+**Melayang tak terkendali** (`effect levitation 15 5`, `attribute movement_speed 0.5`)
+
+### #49
+**Kuat tapi seperti zombie** (`attribute attack_damage 40.0`, `attribute movement_speed 0.08`, `attribute knockback_resistance 1.0`)
+*atau*
+**Cepat tapi rapuh seperti kertas** (`attribute movement_speed 0.65`, `attribute max_health 4.0`, `attribute armor 0.0`)
+
+### #50
+**Luar biasa... tapi tidak melihat apa-apa** (`attribute movement_speed 0.45`, `attribute attack_damage 22.0`, `attribute jump_strength 2.2`, `attribute armor 15.0`, `effect blindness 60 0`)
+*atau*
+**Biasa saja... tapi semua melihatmu** (`effect glowing 60 0`, `effect regeneration 60 0`, `effect speed 60 1`)
