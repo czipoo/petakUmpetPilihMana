@@ -1,0 +1,55 @@
+name: petakUmpetPilihMana
+version: '${project.version}'
+main: com.czipo.petakUmpetPilihMana.PetakUmpetPilihMana
+api-version: '1.21.11'
+load: POSTWORLD
+
+commands:
+  regis:
+    description: "Daftarkan player untuk game"
+    usage: "/regis <nama>"
+    permission: op
+  regisall:
+    description: "Daftarkan semua player online"
+    usage: "/regisall"
+    permission: op
+  unregis:
+    description: "Hapus player dari pendaftaran"
+    usage: "/unregis <nama>"
+    permission: op
+  listplayer:
+    description: "Lihat daftar player yang terdaftar"
+    usage: "/listplayer"
+    permission: op
+  start:
+    description: "Gacha hunter dan mulai game"
+    usage: "/start"
+    permission: op
+  resetgame:
+    description: "Reset ronde saat ini (hunter ronde ini dihapus dari riwayat)"
+    usage: "/resetgame"
+    permission: op
+  endgame:
+    description: "Akhiri tournament setelah ronde selesai"
+    usage: "/endgame"
+    permission: op
+  listscore:
+    description: "Lihat leaderboard score saat ini"
+    usage: "/listscore"
+    permission: op
+  nextround:
+    description: "Gacha hunter dan mulai ronde baru"
+    usage: "/nextround"
+    permission: op
+  setquestion:
+    description: "Set pertanyaan Would You Rather spesifik"
+    usage: "/setquestion <nomor>"
+    permission: op
+  settimer:
+    description: "Atur durasi permainan dalam menit (default 5)"
+    usage: "/settimer <menit>"
+    permission: op
+  commandinfo:
+    description: "Tampilkan daftar semua command beserta penjelasannya"
+    usage: "/commandinfo"
+    permission: op
